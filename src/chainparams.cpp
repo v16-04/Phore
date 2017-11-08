@@ -209,6 +209,10 @@ public:
         nDefaultSecurityLevel = 100; //full security level for accumulators
         nZerocoinHeaderVersion = 4; //Block headers must be this version once zerocoin is active
         nBudget_Fee_Confirmations = 6; // Number of confirmations for the finalization fee
+        nBlockEnforceSerialRange = 895400; //Enforce serial range starting this block
+        nBlockRecalculateAccumulators = 9896000; //Trigger a recalculation of accumulators
+        nBlockFirstFraudulent = 891737; //First block that bad serials emerged
+        nBlockLastGoodCheckpoint = 891730; //Last valid accumulator checkpoint
     }
 
     const Checkpoints::CCheckpointData& Checkpoints() const

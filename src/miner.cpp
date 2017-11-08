@@ -188,7 +188,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
         for (map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
              mi != mempool.mapTx.end(); ++mi) {
             const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || tx.IsCoinStake() || !IsFinalTx(tx, nHeight))
+            if (tx.IsCoinBase() || tx.IsCoinStake() || !IsFinalTx(tx, nHeight) || tx.ContainsZerocoins())
                 continue;
 
             COrphan* porphan = NULL;
@@ -316,6 +316,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
                 for (const CTxIn txIn : tx.vin) {
                     if (txIn.scriptSig.IsZerocoinSpend()) {
                         libzerocoin::CoinSpend spend = TxInToZerocoinSpend(txIn);
+                        if (!spend.HasValidSerial(Params().Zerocoin_Params()))
+                            fDoubleSerial = true;
                         if (count(vBlockSerials.begin(), vBlockSerials.end(), spend.getCoinSerialNumber()))
                             fDoubleSerial = true;
                         if (count(vTxSerials.begin(), vTxSerials.end(), spend.getCoinSerialNumber()))

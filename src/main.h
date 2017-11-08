@@ -350,7 +350,7 @@ bool CheckInputs(const CTransaction& tx, CValidationState& state, const CCoinsVi
 void UpdateCoins(const CTransaction& tx, CValidationState& state, CCoinsViewCache& inputs, CTxUndo& txundo, int nHeight);
 
 /** Context-independent validity checks */
-bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, CValidationState& state);
+bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, bool fRejectBadUTXO, CValidationState& state);
 bool CheckZerocoinMint(const uint256& txHash, const CTxOut& txout, CValidationState& state, bool fCheckOnly = false);
 bool CheckZerocoinSpend(const CTransaction tx, bool fVerifySignature, CValidationState& state);
 libzerocoin::CoinSpend TxInToZerocoinSpend(const CTxIn& txin);
@@ -367,6 +367,7 @@ bool RemoveSerialFromDB(const CBigNum& bnSerial);
 int GetZerocoinStartHeight();
 bool IsTransactionInChain(uint256 txId, int& nHeightTx);
 bool IsBlockHashInChain(const uint256& hashBlock);
+
 
 /**
  * Check if transaction will be final in the next block to be created.

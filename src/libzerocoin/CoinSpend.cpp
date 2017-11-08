@@ -68,4 +68,9 @@ const uint256 CoinSpend::signatureHash() const
     return h.GetHash();
 }
 
+bool CoinSpend::HasValidSerial(ZerocoinParams* params) const
+{
+    return coinSerialNumber > 0 && coinSerialNumber < params->coinCommitmentGroup.groupOrder;
+}
+
 } /* namespace libzerocoin */

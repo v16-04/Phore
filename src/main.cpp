@@ -1315,7 +1315,7 @@ bool CheckZerocoinSpend(const CTransaction tx, bool fVerifySignature, CValidatio
         return state.DoS(100, error("CheckZerocoinSpend(): Zerocoin transactions are not allowed yet"));
 
     //max needed non-mint outputs should be 2 - one for redemption address and a possible 2nd for change
-    if (tx.vout.size() > 2){
+    if (tx.vout.size() > 2) {
         int outs = 0;
         for (const CTxOut out : tx.vout) {
             if (out.IsZerocoinMint())
@@ -1402,7 +1402,7 @@ bool CheckZerocoinSpend(const CTransaction tx, bool fVerifySignature, CValidatio
     return fValidated;
 }
 
-bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, CValidationState& state)
+bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, bool fRejectBadUTXO, CValidationState& state)
 {
     // Basic checks that don't depend on any context
     if (tx.vin.empty())
@@ -1468,7 +1468,7 @@ bool CheckTransaction(const CTransaction& tx, bool fZerocoinActive, CValidationS
     // Check for duplicate inputs
     set<COutPoint> vInOutPoints;
     set<CBigNum> vZerocoinSpendSerials;
-    BOOST_FOREACH (const CTxIn& txin, tx.vin) {
+    for (const CTxIn& txin : tx.vin) {
         if (vInOutPoints.count(txin.prevout))
             return state.DoS(100, error("CheckTransaction() : duplicate inputs"),
                 REJECT_INVALID, "bad-txns-inputs-duplicate");
@@ -1560,7 +1560,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState& state, const CTransa
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
-    if (!CheckTransaction(tx, GetAdjustedTime() > GetSporkValue(SPORK_17_ENABLE_ZEROCOIN), state))
+    //Temporarily disable zerocoin
+    if (tx.ContainsZerocoins())
+        return state.DoS(100, error("AcceptToMemoryPool : Zerocoin transactions temporarily disabled"));
+
+    if (!CheckTransaction(tx, GetAdjustedTime() > GetSporkValue(SPORK_17_ENABLE_ZEROCOIN), true, state))
         return state.DoS(100, error("AcceptToMemoryPool: : CheckTransaction failed"), REJECT_INVALID, "bad-tx");
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -1634,6 +1638,11 @@ bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState& state, const CTransa
                 if (IsSerialInBlockchain(spend.getCoinSerialNumber(), nHeightTx))
                     return state.Invalid(error("%s : zPiv spend with serial %s is already in block %d\n",
                                                 __func__, spend.getCoinSerialNumber().GetHex(), nHeightTx));
+
+                //Is serial in the acceptable range
+                if (!spend.HasValidSerial(Params().Zerocoin_Params()))
+                    return state.Invalid(error("%s : zPiv spend with serial %s from tx %s is not in valid range\n",
+                                               __func__, spend.getCoinSerialNumber().GetHex(), tx.GetHash().GetHex()));
             }
         } else {
             LOCK(pool.cs);
@@ -1780,7 +1789,7 @@ bool AcceptableInputs(CTxMemPool& pool, CValidationState& state, const CTransact
     if (pfMissingInputs)
         *pfMissingInputs = false;
 
-    if (!CheckTransaction(tx, GetAdjustedTime() > GetSporkValue(SPORK_17_ENABLE_ZEROCOIN), state))
+    if (!CheckTransaction(tx, GetAdjustedTime() > GetSporkValue(SPORK_17_ENABLE_ZEROCOIN), true, state))
         return error("AcceptableInputs: : CheckTransaction failed");
 
     // Coinbase is only valid in a block, not as a loose transaction
@@ -2930,6 +2939,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             return state.DoS(100, error("ConnectBlock() : too many sigops"),
                 REJECT_INVALID, "bad-blk-sigops");
 
+        //Temporarily shut off zerocoin transactions
+        if (pindex->nHeight >= Params().Zerocoin_Block_EnforceSerialRange() && tx.ContainsZerocoins())
+            return state.DoS(100, error("ConnectBlock() : zerocoin transactions are disabled"));
+
         if (tx.IsZerocoinSpend()) {
             int nHeightTx = 0;
             if (IsTransactionInChain(tx.GetHash(), nHeightTx)) {
@@ -2946,6 +2959,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     continue;
                 CoinSpend spend = TxInToZerocoinSpend(txIn);
                 int nHeightTx = 0;
+
+                // Make sure that the serial number is in valid range
+                if (!spend.HasValidSerial(Params().Zerocoin_Params())) {
+                    string strError = strprintf("%s : txid=%s in block %d contains invalid serial %s\n", __func__, tx.GetHash().GetHex(), pindex->nHeight, spend.getCoinSerialNumber());
+                    if (pindex->nHeight >= Params().Zerocoin_Block_EnforceSerialRange())
+                        return state.DoS(100, error(strError.c_str()));
+                    strError = "NOT ENFORCING : " + strError;
+                    LogPrintf(strError.c_str());
+                }
 
                 uint256 hashTxFromDB;
                 if (zerocoinDB->ReadCoinSpend(spend.getCoinSerialNumber(), hashTxFromDB)) {
@@ -4057,7 +4079,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     bool fZerocoinActive = block.nTime > GetSporkValue(SPORK_17_ENABLE_ZEROCOIN);
     vector<CBigNum> vBlockSerials;
     for (const CTransaction& tx : block.vtx) {
-        if (!CheckTransaction(tx, fZerocoinActive, state))
+        if (!CheckTransaction(tx, fZerocoinActive, chainActive.Height() + 1 >= Params().Zerocoin_Block_EnforceSerialRange(), state))
             return error("CheckBlock() : CheckTransaction failed");
 
         // double check that there are no double spent zPiv spends in this block
