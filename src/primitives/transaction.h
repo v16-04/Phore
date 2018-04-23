@@ -14,8 +14,8 @@
 
 #include <list>
 
-static const int SERIALIZE_TRANSACTION_WITNESS = 0x40000000;
-static const int WITNESS_SCALE_FACTOR = 4;
+static const int SERIALIZE_TRANSACTION_NO_WITNESS = 0x40000000;
+static const unsigned int WITNESS_SCALE_FACTOR = 4;
 
 
 class CTransaction;
@@ -162,17 +162,26 @@ public:
 
     uint256 GetHash() const;
 
-    bool IsDust(CFeeRate minRelayTxFee) const
+    CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
     {
-        // "Dust" is defined in terms of CTransaction::minRelayTxFee, which has units uphr-per-kilobyte.
-        // If you'd pay more than 1/3 in fees to spend something, then we consider it dust.
-        // A typical txout is 34 bytes big, and will need a CTxIn of at least 148 bytes to spend
-        // i.e. total is 148 + 32 = 182 bytes. Default -minrelaytxfee is 10000 uphr per kB
-        // and that means that fee per txout is 182 * 10000 / 1000 = 1820 uphr.
-        // So dust is a txout less than 1820 *3 = 5460 uphr
-        // with default -minrelaytxfee = minRelayTxFee = 10000 uphr per kB.
+        // "Dust" is defined in terms of CTransaction::minRelayTxFee,
+        // which has units satoshis-per-kilobyte.
+        // If you'd pay more than 1/3 in fees
+        // to spend something, then we consider it dust.
+        // A typical spendable txout is 34 bytes big, and will
+        // need a CTxIn of at least 148 bytes to spend:
+        // so dust is a spendable txout less than
+        // 546*minRelayTxFee/1000 (in satoshis)
+        if (scriptPubKey.IsUnspendable())
+            return 0;
+
         size_t nSize = GetSerializeSize(SER_DISK,0)+148u;
-        return (nValue < 3*minRelayTxFee.GetFee(nSize));
+        return 3*minRelayTxFee.GetFee(nSize);
+    }
+
+    bool IsDust(const CFeeRate &minRelayTxFee) const
+    {
+        return (nValue < GetDustThreshold(minRelayTxFee));
     }
 
     bool IsZerocoinMint() const
@@ -285,7 +294,7 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
         const_cast<CTxWitness*>(&tx.wit)->SetNull();
         /* Try to read the vin. In case the dummy is there, this will be read as an empty vector. */
         READWRITE(*const_cast<std::vector<CTxIn>*>(&tx.vin));
-        if (tx.vin.size() == 0 && (nVersion & SERIALIZE_TRANSACTION_WITNESS)) {
+        if (tx.vin.size() == 0 && !(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS)) {
             /* We read a dummy or an empty vin. */
             READWRITE(flags);
             if (flags != 0) {
@@ -296,7 +305,7 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
             /* We read a non-empty vin. Assume a normal vout follows. */
             READWRITE(*const_cast<std::vector<CTxOut>*>(&tx.vout));
         }
-        if ((flags & 1) && (nVersion & SERIALIZE_TRANSACTION_WITNESS)) {
+        if ((flags & 1) && !(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS)) {
             /* The witness flag is present, and we support witnesses. */
             flags ^= 1;
             const_cast<CTxWitness*>(&tx.wit)->vtxinwit.resize(tx.vin.size());
@@ -308,7 +317,7 @@ inline void SerializeTransaction(TxType& tx, Stream& s, Operation ser_action, in
         }
     } else {
         assert(tx.wit.vtxinwit.size() <= tx.vin.size());
-        if (nVersion & SERIALIZE_TRANSACTION_WITNESS) {
+        if (!(nVersion & SERIALIZE_TRANSACTION_NO_WITNESS)) {
             /* Check whether witnesses need to be serialized. */
             if (!tx.wit.IsNull()) {
                 flags |= 1;
@@ -396,7 +405,7 @@ public:
 
     bool IsZerocoinSpend() const
     {
-        return (vin.size() > 0 && vin[0].prevout.IsNull() && vin[0].scriptSig[0] == OP_ZEROCOINSPEND);
+        return (vin.size() > 0 && vin[0].prevout.IsNull() && vin[0].scriptSig.size() > 0 && vin[0].scriptSig[0] == OP_ZEROCOINSPEND);
     }
 
     bool IsZerocoinMint() const

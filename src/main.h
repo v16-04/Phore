@@ -61,16 +61,18 @@ struct CNodeStateStats;
 /** Default for -blockmaxsize and -blockminsize, which control the range of sizes the mining code will create **/
 static const unsigned int DEFAULT_BLOCK_MAX_SIZE = 750000;
 static const unsigned int DEFAULT_BLOCK_MIN_SIZE = 0;
+/** Default for -blockmaxcost, which control the range of block costs the mining code will create **/
+static const unsigned int DEFAULT_BLOCK_MAX_COST = 3000000;
 /** Default for -blockprioritysize, maximum space for zero/low-fee transactions **/
 static const unsigned int DEFAULT_BLOCK_PRIORITY_SIZE = 50000;
 /** Default for accepting alerts from the P2P network. */
 static const bool DEFAULT_ALERTS = true;
 /** The maximum size for transactions we're willing to relay/mine */
-static const int64_t MAX_STANDARD_TX_COST = 400000;
+static const unsigned int MAX_STANDARD_TX_COST = 400000;
 /** The maximum allowed number of signature check operations in a block (network rule) */
-static const int64_t MAX_BLOCK_SIGOPS_COST = 80000;
+static const unsigned int MAX_BLOCK_SIGOPS_COST = 80000;
 /** The maximum number of sigops we're willing to relay/mine in a single tx */
-static const int64_t MAX_STANDARD_TX_SIGOPS_COST = MAX_BLOCK_SIGOPS_COST/5;
+static const unsigned int MAX_STANDARD_TX_SIGOPS_COST = MAX_BLOCK_SIGOPS_COST/5;
 /** Maximum number of signature check operations in an IsStandard() P2SH script */
 static const unsigned int MAX_P2SH_SIGOPS = 15;
 /** The maximum number of sigops we're willing to relay/mine in a single tx */
@@ -115,6 +117,12 @@ static const unsigned int DATABASE_WRITE_INTERVAL = 3600;
 static const unsigned int MAX_REJECT_MESSAGE_LENGTH = 111;
 /** Default for -bytespersigop */
 static const unsigned int DEFAULT_BYTES_PER_SIGOP = 20;
+/** The maximum number of witness stack items in a standard P2WSH script */
+static const unsigned int MAX_STANDARD_P2WSH_STACK_ITEMS = 100;
+/** The maximum size of each witness stack item in a standard P2WSH script */
+static const unsigned int MAX_STANDARD_P2WSH_STACK_ITEM_SIZE = 80;
+/** The maximum size of a standard witnessScript */
+static const unsigned int MAX_STANDARD_P2WSH_SCRIPT_SIZE = 3600;
 
 /** Enable bloom filter */
  static const bool DEFAULT_PEERBLOOMFILTERS = true;
@@ -383,6 +391,14 @@ unsigned int GetLegacySigOpCount(const CTransaction& tx);
  */
 unsigned int GetP2SHSigOpCount(const CTransaction& tx, const CCoinsViewCache& mapInputs);
 
+/**
+ * Compute total signature operation cost of a transaction.
+ * @param[in] tx     Transaction for which we are computing the cost
+ * @param[in] inputs Map of previous transactions that have outputs we're spending
+ * @param[out] flags Script verification flags
+ * @return Total signature operation cost of tx
+ */
+int64_t GetTransactionSigOpCost(const CTransaction& tx, const CCoinsViewCache& inputs, int flags);
 
 /**
  * Check whether all inputs of this transaction are valid (no double spends, scripts & sigs, amounts)
@@ -533,7 +549,7 @@ bool AcceptBlockHeader(const CBlockHeader& block, CValidationState& state, CBloc
 bool RewindBlockIndex(const CChainParams& params);
 
 /** Update uncommitted block structures (currently: only the witness nonce). This is safe for submitted blocks. */
-void UpdateUncommitedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev);
+void UpdateUncommittedBlockStructures(CBlock& block, const CBlockIndex* pindexPrev);
 
 /** Produce the necessary coinbase commitment for a block (modifies the hash, don't call for mined blocks). */
 std::vector<unsigned char> GenerateCoinbaseCommitment(CBlock& block, const CBlockIndex* pindexPrev);
@@ -638,5 +654,6 @@ struct CBlockTemplate {
 };
 
 int64_t GetVirtualTransactionSize(const CTransaction& tx);
+int64_t GetVirtualTransactionSize(int64_t nCost);
 
 #endif // BITCOIN_MAIN_H
