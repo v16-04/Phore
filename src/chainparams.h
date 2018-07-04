@@ -113,7 +113,7 @@ public:
     int LAST_POW_BLOCK() const { return nLastPOWBlock; }
     int Zerocoin_StartHeight() const { return nZerocoinStartHeight; }
     int Zerocoin_LastOldParams() const { return nZerocoinLastOldParams; }
-    int MinimumStakeAmount() const { return nMinimumStakeAmount; }
+    CAmount MinimumStakeAmount() const { return nMinimumStakeAmount; }
 
 protected:
     CChainParams() {}
@@ -165,7 +165,7 @@ protected:
     int nZerocoinHeaderVersion;
     int64_t nBudgetFeeConfirmations;
     int nZerocoinStartHeight;
-    int nMinimumStakeAmount;
+    CAmount nMinimumStakeAmount;
     int nZerocoinLastOldParams;
 };
 

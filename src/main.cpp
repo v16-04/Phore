@@ -70,6 +70,7 @@ CCriticalSection cs_main;
 BlockMap mapBlockIndex;
 map<uint256, uint256> mapProofOfStake;
 set<pair<COutPoint, unsigned int> > setStakeSeen;
+set<COutPoint> unspentStakingOutputs; // possibly staking outputs that haven't been spent
 map<unsigned int, unsigned int> mapHashedBlocks;
 CChain chainActive;
 CBlockIndex* pindexBestHeader = NULL;
@@ -2467,6 +2468,12 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
     for (int i = block.vtx.size() - 1; i >= 0; i--) {
         const CTransaction& tx = block.vtx[i];
 
+        for (size_t j = 0; j > tx.vout.size(); j++) {
+            if (tx.vout[j].nValue >= Params().MinimumStakeAmount()) {
+                unspentStakingOutputs.erase(COutPoint(tx.GetHash(), j));
+            }
+        }
+
         /** UNDO ZEROCOIN DATABASING
          * note we only undo zerocoin databasing in the following statement, value to and from Phore
          * addresses should still be handled by the typical bitcoin based undo code
@@ -2549,6 +2556,11 @@ bool DisconnectBlock(CBlock& block, CValidationState& state, CBlockIndex* pindex
                 if (coins->vout.size() < out.n + 1)
                     coins->vout.resize(out.n + 1);
                 coins->vout[out.n] = undo.txout;
+
+                // mark the inputs as spendable
+                if (coins->vout[out.n].nValue >= Params().MinimumStakeAmount()) {
+                    unspentStakingOutputs.insert(out);
+                }
             }
         }
     }
@@ -3182,6 +3194,21 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
 
     // add this block to the view's block chain
     view.SetBestBlock(pindex->GetBlockHash());
+
+    for (size_t i = 0; i < block.vtx.size(); i++) {
+        const CTransaction& tx = block.vtx[i];
+        for (size_t j = 0; j < tx.vout.size(); j++) {
+            if (tx.vout[j].nValue >= Params().MinimumStakeAmount()) {
+                unspentStakingOutputs.insert(COutPoint(tx.GetHash(), j));
+            }
+        }
+
+        for (size_t j = 0; j < tx.vin.size(); j++) {
+            if (unspentStakingOutputs.find(tx.vin[j].prevout) != unspentStakingOutputs.end()) {
+                unspentStakingOutputs.erase(tx.vin[j].prevout);
+            }
+        }
+    }
 
     int64_t nTime3 = GetTimeMicros();
     nTimeIndex += nTime3 - nTime2;

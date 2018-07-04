@@ -62,9 +62,10 @@ public:
             READWRITE(nAccumulatorCheckpoint);
         
         //spv active, header changes to include root of stakeable coins and proof of stake
-        if (nVersion > 4)
+        if (nVersion > 4) {
             READWRITE(nStakableRoot);
             READWRITE(stakeProof);
+        }
     }
 
     void SetNull()
