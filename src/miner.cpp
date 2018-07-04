@@ -121,10 +121,14 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
 
     // Make sure to create the correct block version after zerocoin is enabled
     bool fZerocoinActive = chainActive.Height() >= Params().Zerocoin_StartHeight();
+    bool fSPVActive = chainActive.Height() >= Params().Zerocoin_LastOldParams();
+
+    pblock->nVersion = 3;
     if (fZerocoinActive)
-        pblock->nVersion = 4;
-    else
-        pblock->nVersion = 3;
+        pblock->nVersion++; // nVersion = 4
+    
+    if (fSPVActive)
+        pblock->nVersion++; // nVersion = 5
 
     // Create coinbase tx
     CMutableTransaction txNew;
@@ -524,7 +528,7 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     assert(txCoinbase.vin[0].scriptSig.size() <= 100);
 
     pblock->vtx[0] = txCoinbase;
-    pblock->hashMerkleRoot = pblock->BuildMerkleTree();
+    pblock->hashMerkleRoot = pblock->BuildTransactionMerkleTree();
 }
 
 #ifdef ENABLE_WALLET

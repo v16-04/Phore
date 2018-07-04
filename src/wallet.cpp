@@ -4295,7 +4295,7 @@ int CMerkleTx::SetMerkleBranch(const CBlock& block)
     }
 
     // Fill in merkle branch
-    vMerkleBranch = block.GetMerkleBranch(nIndex);
+    vMerkleBranch = block.GetTransactionMerkleBranch(nIndex);
 
     // Is the tx in a block that's in the main chain
     BlockMap::iterator mi = mapBlockIndex.find(hashBlock);

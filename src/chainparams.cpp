@@ -142,6 +142,7 @@ public:
         nLastPOWBlock = 200;
         nModifierUpdateBlock = 433160;
         nZerocoinStartHeight = 89993;
+        nMinimumStakeAmount = 100 * COIN;
 
         /**
          * Build the genesis block. Note that the output of the genesis coinbase cannot
@@ -161,7 +162,7 @@ public:
         txNew.vout[0].SetEmpty();
         genesis.vtx.push_back(txNew);
         genesis.hashPrevBlock = 0;
-        genesis.hashMerkleRoot = genesis.BuildMerkleTree();
+        genesis.hashMerkleRoot = genesis.BuildTransactionMerkleTree();
         genesis.nVersion = 1;
         genesis.nTime = 1505224800;
         genesis.nBits = 0x207fffff;;

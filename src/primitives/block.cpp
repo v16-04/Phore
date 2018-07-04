@@ -21,7 +21,7 @@ uint256 CBlockHeader::GetHash() const
     return Hash(BEGIN(nVersion), END(nAccumulatorCheckpoint));
 }
 
-uint256 CBlock::BuildMerkleTree(bool* fMutated) const
+uint256 CBlock::BuildTransactionMerkleTree(bool* fMutated) const
 {
     /* WARNING! If you're reading this because you're learning about crypto
        and/or designing a new system that will use merkle trees, keep in mind
@@ -84,10 +84,10 @@ uint256 CBlock::BuildMerkleTree(bool* fMutated) const
     return (vMerkleTree.empty() ? uint256() : vMerkleTree.back());
 }
 
-std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
+std::vector<uint256> CBlock::GetTransactionMerkleBranch(int nIndex) const
 {
     if (vMerkleTree.empty())
-        BuildMerkleTree();
+        BuildTransactionMerkleTree();
     std::vector<uint256> vMerkleBranch;
     int j = 0;
     for (int nSize = vtx.size(); nSize > 1; nSize = (nSize + 1) / 2)
@@ -100,7 +100,7 @@ std::vector<uint256> CBlock::GetMerkleBranch(int nIndex) const
     return vMerkleBranch;
 }
 
-uint256 CBlock::CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex)
+uint256 CBlock::CheckTransactionMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex)
 {
     if (nIndex == -1)
 		return uint256();

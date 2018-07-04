@@ -16,6 +16,8 @@
 static const unsigned int MAX_BLOCK_SIZE_CURRENT = 2000000;
 static const unsigned int MAX_BLOCK_SIZE_LEGACY = 1000000;
 
+typedef std::vector<uint256> CMerkleProof;
+
 /** Nodes collect new transactions into a block, hash them into a hash tree,
  * and scan through nonce values to make the block's hash satisfy proof-of-work
  * requirements.  When they solve the proof-of-work, they broadcast the block
@@ -35,6 +37,8 @@ public:
     uint32_t nBits;
     uint32_t nNonce;
     uint256 nAccumulatorCheckpoint;
+    uint256 nStakableRoot;
+    CMerkleProof stakeProof;
 
     CBlockHeader()
     {
@@ -56,6 +60,11 @@ public:
         //zerocoin active, header changes to include accumulator checksum
         if(nVersion > 3)
             READWRITE(nAccumulatorCheckpoint);
+        
+        //spv active, header changes to include root of stakeable coins and proof of stake
+        if (nVersion > 4)
+            READWRITE(nStakableRoot);
+            READWRITE(stakeProof);
     }
 
     void SetNull()
@@ -67,6 +76,8 @@ public:
         nBits = 0;
         nNonce = 0;
         nAccumulatorCheckpoint = 0;
+        nStakableRoot.SetNull();
+        stakeProof.clear();
     }
 
     bool IsNull() const
@@ -162,10 +173,10 @@ public:
     // If non-NULL, *mutated is set to whether mutation was detected in the merkle
     // tree (a duplication of transactions in the block leading to an identical
     // merkle root).
-    uint256 BuildMerkleTree(bool* mutated = NULL) const;
+    uint256 BuildTransactionMerkleTree(bool* mutated = NULL) const;
 
-    std::vector<uint256> GetMerkleBranch(int nIndex) const;
-    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
+    std::vector<uint256> GetTransactionMerkleBranch(int nIndex) const;
+    static uint256 CheckTransactionMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
     std::string ToString() const;
     void print() const;
 };
