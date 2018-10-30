@@ -119,6 +119,7 @@ ProposalList::ProposalList(   QWidget *parent) :
     hlayout->addWidget(abstainVotesWidget);
 
     percentageWidget = new QLineEdit(this);
+    percentageWidget->setAttribute(Qt::WA_MacShowFocusRect, 0);
 #if QT_VERSION >= 0x040700
     percentageWidget->setPlaceholderText(tr("Min percentage"));
 #endif
