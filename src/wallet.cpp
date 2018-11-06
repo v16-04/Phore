@@ -5417,3 +5417,4 @@ bool CWallet::DatabaseMint(CDeterministicMint& dMint)
     zphrTracker->Add(dMint, true);
     return true;
 }
+
