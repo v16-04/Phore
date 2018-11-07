@@ -659,6 +659,4 @@ struct CBlockTemplate {
 int64_t GetVirtualTransactionSize(const CTransaction& tx);
 int64_t GetVirtualTransactionSize(int64_t nCost);
 
-bool hasEnabledStakingOnSegWit();
-
 #endif // BITCOIN_MAIN_H

@@ -4011,11 +4011,6 @@ bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool f
     return true;
 }
 
-bool hasEnabledStakingOnSegWit()
-{
-    return IsSporkActive(SPORK_19_STAKING_ON_SEGWIT);
-}
-
 static int GetWitnessCommitmentIndex(const CBlock& block);
 bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig)
 {
@@ -4072,14 +4067,6 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
     if (block.IsProofOfStake()) {
         // Coinbase output should be empty if proof-of-stake block
         int commitpos = GetWitnessCommitmentIndex(block);
-        if (! hasEnabledStakingOnSegWit()) {
-            if (commitpos >= 0) {
-                if (fDebug) {
-                    LogPrintf("CheckBlock() : staking-on-segwit is not enabled.\n");
-                }
-                return false;
-            }
-        }
         if (block.vtx[0].vout.size() != (commitpos == -1 ? 1 : 2) || !block.vtx[0].vout[0].IsEmpty())
             return state.DoS(100, error("CheckBlock() : coinbase output not empty for proof-of-stake block"));
 
@@ -4380,6 +4367,14 @@ bool ContextualCheckBlock(const CBlock& block, CValidationState& state, CBlockIn
     if (GetSporkValue(SPORK_17_SEGWIT_ACTIVATION) < pindexPrev->nTime) {
         int commitpos = GetWitnessCommitmentIndex(block);
         if (commitpos != -1) {
+            if (!IsSporkActive(SPORK_19_STAKING_ON_SEGWIT)) {
+                if (fDebug) {
+                    LogPrintf("CheckBlock() : staking-on-segwit is not enabled.\n");
+                }
+                return false;
+            }
+
+
             bool malleated = false;
             uint256 hashWitness = BlockWitnessMerkleRoot(block, &malleated);
             // The malleation check is ignored; as the transaction tree itself
